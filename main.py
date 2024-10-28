@@ -7,17 +7,18 @@
 #     "port": 3306
 # }
 import requests
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, BackgroundTasks
 from db import Database, build_and_execute_query, build_and_execute_match_request_query
 from utils.igdb_helper import fetch_games_data
 import os
 from dotenv import load_dotenv
 from typing import List, Optional
 from uuid import UUID
-from model import GameWithLinks, GamesResponse, MatchRequest, MatchRequestResponse, MatchRequestWithLinks
+from model import GameWithLinks, GamesResponse, MatchRequest, MatchRequestResponse, MatchRequestWithLinks, MatchRequestInitiate, MatchmakingStatus
 from fastapi.responses import JSONResponse
 import uuid
 from datetime import datetime
+import asyncio
 
 
 app = FastAPI()
@@ -37,28 +38,28 @@ db = Database(context)
 
 # TODO: Check if game exists, then update the game instead of creating new entry
 @app.on_event("startup")
-# async def startup():
-#     # Initialize the 'Games' database schema
-#     print('Initialize the database...')
-#     db.initialize('Games')  # Ensure the database and tables are created
-#     print('Initialized both the tables in the database')
-#     print("Fetching game data from IGDB and populating the database...")
-#     games_info = fetch_games_data()
-#     for game in games_info:
-#         # Prepare the data object for insertion
-#         data_object = {
-#             "gameId": game["id"],
-#             "title": game["name"],
-#             "description": game["description"],
-#             "image": game["image_url"]
-#         }
+async def startup():
+    # Initialize the 'Games' database schema
+    print('Initialize the database...')
+    db.initialize('Games')  # Ensure the database and tables are created
+    print('Initialized all the tables in the database')
+    print("Fetching game data from IGDB and populating the database...")
+    games_info = fetch_games_data()
+    for game in games_info:
+        # Prepare the data object for insertion
+        data_object = {
+            "gameId": game["id"],
+            "title": game["name"],
+            "description": game["description"],
+            "image": game["image_url"]
+        }
 
-#         # Insert the data object into the database
-#         if db.data_service.insert_data_object("Games", "game_info", data_object):
-#            pass
-#         else:
-#             print(f"Failed to insert game: {game['name']}")
-#     print("Database population complete for table: games_info!")
+        # Insert the data object into the database
+        if db.data_service.insert_data_object("Games", "game_info", data_object):
+           pass
+        else:
+            print(f"Failed to insert game: {game['name']}")
+    print("Database population complete for table: games_info!")
 
 @app.get("/health")
 async def health():
@@ -139,7 +140,8 @@ async def get_game(game_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail="An error occurred while fetching the game.")
     
-
+# TODO: Add validation if that match exists
+# TODO: Add validation if that game is valid - Can be done by the composite service
 @app.post("/match-requests", response_model=MatchRequest, status_code=201)
 async def create_match_request(match_request: MatchRequest):
     try:
@@ -239,3 +241,151 @@ async def get_match_request(match_request_id: str):
     )
     except Exception as e:
         raise HTTPException(status_code=500, detail="An error occurred while fetching the game.")
+    
+@app.post("/match-requests/match", status_code=202)
+async def initiate_match(
+    match_request_initiate: MatchRequestInitiate,
+    background_tasks: BackgroundTasks
+):
+    match_request_id = match_request_initiate.MatchRequestId
+    try:
+        # Fetch the match request from the DB
+        match_request = db.data_service.get_data_object("Games", "match_request", "matchRequestId", match_request_id)
+
+        if not match_request:
+            raise HTTPException(status_code=404, detail="Match request not found.")
+        if match_request.get("isActive"):
+            raise HTTPException(status_code=400, detail="Match request is already active.")
+
+        # Update the match request to set it as active
+        match_request["isActive"] = True
+
+        # Use the new update_data_object method
+        update_successful = db.data_service.update_data_object("Games", "match_request", "matchRequestId", match_request_id, match_request)
+
+        if not update_successful:
+            raise HTTPException(status_code=500, detail="Failed to update match request.")
+
+        # Initiate the asynchronous matchmaking process
+        background_tasks.add_task(process_matchmaking, match_request_id)
+
+        # Return a 202 response with a polling URL
+        polling_url = f"/match-requests/status/{match_request_id}"
+        return JSONResponse(
+            content={
+                "message": "Matchmaking request accepted. Poll status at the specified URL.",
+                "matchRequestId": match_request_id,
+                "polling_url": polling_url
+            },
+            status_code=202
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/match/status/{match_request_id}", response_model=MatchmakingStatus)
+async def get_matchmaking_status(match_request_id: str):
+    try:
+        # Fetch the match request from the database to check its status
+        match_request = db.data_service.get_data_object("Games", "match_request", "matchRequestId", match_request_id)
+
+        if not match_request:
+            return MatchmakingStatus(
+                matchRequestId=match_request_id,
+                status="not_found"
+            )
+
+        if match_request.get("isActive"):
+            return MatchmakingStatus(
+                matchRequestId=match_request_id,
+                status="matching"
+            )
+
+        # Check if there is a matched request in the matched_requests table
+        matched_request = db.data_service.get_data_object("Games", "matched_requests", "matchRequestId1", match_request_id)
+
+        if matched_request:
+            return MatchmakingStatus(
+                matchRequestId=match_request_id,
+                status="matched",
+                partnerRequestId=matched_request["matchRequestId2"]
+            )
+
+        # If no match is found, return the appropriate status
+        return MatchmakingStatus(
+            matchRequestId=match_request_id,
+            status="not_found"
+        )
+
+    except Exception as e:
+        print(f"Error fetching matchmaking status for {match_request_id}: {str(e)}")
+        return MatchmakingStatus(
+            matchRequestId=match_request_id,
+            status="error"
+        )
+
+
+# TODO: Fix race condition, when there are two valid matches
+# TODO: Move this to different file as helper
+async def process_matchmaking(match_request_id):
+    """
+    Process matchmaking for the given match request ID.
+    This function will look for other active match requests for the same game
+    and pair them together if a match is found.
+    """
+    try:
+        # Fetch the match request from the DB to get the game information
+        match_request = db.data_service.get_data_object("Games", "match_request", "matchRequestId", match_request_id)
+
+        if not match_request or not match_request.get("isActive"):
+            print(f"No active match request found for ID: {match_request_id}. Exiting matchmaking process.")
+            return
+
+        game_id = match_request["gameId"] 
+        user_id = match_request["userId"]
+
+        while True:
+            await asyncio.sleep(5)  # Check for matches every 5 seconds
+
+            # Fetch all active match requests for the same game
+            active_matches = db.data_service.get_all_data_objects("Games", "match_request", 0, 100)  # Adjust limit as needed
+            print(active_matches)
+            matched_requests = [
+                req for req in active_matches 
+                if (req["gameId"] == game_id and 
+                    req["matchRequestId"] != match_request_id and 
+                    req.get("isActive") and 
+                    req["userId"] != user_id)  # Ensure user IDs are not the same
+            ]
+            print(matched_requests)
+
+            if matched_requests:
+                # Pair the current match request with the first matching request found
+                partner_request = matched_requests[0]
+
+                # Create a new entry in the matched database
+                matched_data = {
+                    "matchRequestId1": match_request_id,
+                    "matchRequestId2": partner_request["matchRequestId"],
+                    "gameId": game_id,
+                    "status": "matched"
+                }
+                print(matched_data)
+                
+                # Insert the matched data into the database
+                res = db.data_service.insert_data_object("Games", "matched_requests", matched_data)
+
+                if res:
+                    print(f"Match found! {match_request_id} matched with {partner_request['matchRequestId']}")
+                    
+                    # Update both match requests to set them as not active
+                    match_request["isActive"] = False
+                    partner_request["isActive"] = False
+                    db.data_service.update_data_object("Games", "match_request", "matchRequestId", match_request_id, match_request)
+                    db.data_service.update_data_object("Games", "match_request", "matchRequestId", partner_request["matchRequestId"], partner_request)
+
+                    break  # Exit the while loop after a successful match
+            else:
+                print(f"No match found for {match_request_id}. Continuing to search...")
+
+    except Exception as e:
+        print(f"Error during matchmaking process for {match_request_id}: {str(e)}")

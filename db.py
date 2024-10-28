@@ -20,7 +20,7 @@ class Database:
             with connection.cursor() as cursor:
                 # Create the database if it doesn't exist
                 cursor.execute(f"CREATE DATABASE IF NOT EXISTS {database_name}")
-        
+
         # Ensure connection to the specific database for table creation
         self.context["database"] = database_name  # Update context with database name
         
@@ -28,25 +28,42 @@ class Database:
         with self.data_service._get_connection() as connection:
             with connection.cursor() as cursor:
                 cursor.execute(f"USE {database_name}")
+
                 # Create the `game_info` table if it doesn't exist
                 cursor.execute("""
                     CREATE TABLE IF NOT EXISTS game_info (
-                        gameId CHAR(36) PRIMARY KEY DEFAULT (UUID()),
+                        gameId CHAR(36) PRIMARY KEY,  -- Remove default UUID generation here
                         image VARCHAR(255),
                         title VARCHAR(255),
                         description TEXT,
                         genre TEXT
                     )
                 """)
+
                 # Create the 'match_request' table if it doesn't exist
                 cursor.execute("""
                     CREATE TABLE IF NOT EXISTS match_request (
                         userId CHAR(36),
                         gameId CHAR(36),
-                        matchRequestId CHAR(36) PRIMARY KEY DEFAULT (UUID()),
+                        matchRequestId CHAR(36) PRIMARY KEY,  -- Remove default UUID generation here
                         expireDate DATE,
                         isActive BOOL,
                         isCancelled BOOL
+                    )
+                """)
+
+                # Create the `matched_requests` table if it doesn't exist
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS matched_requests (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        matchRequestId1 CHAR(36) NOT NULL,
+                        matchRequestId2 CHAR(36) NOT NULL,
+                        gameId CHAR(36) NOT NULL,
+                        status ENUM('matched', 'completed', 'cancelled') NOT NULL DEFAULT 'matched',
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                        FOREIGN KEY (matchRequestId1) REFERENCES match_request(matchRequestId) ON DELETE CASCADE,
+                        FOREIGN KEY (matchRequestId2) REFERENCES match_request(matchRequestId) ON DELETE CASCADE
                     )
                 """)
                 connection.commit()

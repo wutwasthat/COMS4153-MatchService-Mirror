@@ -27,7 +27,7 @@ class MatchRequest(BaseModel):
     gameId: str
     matchRequestId: str = Field(default_factory=lambda: str(uuid.uuid4()))  # Automatically generate UUID
     expireDate: str  # Use str for date or adjust to use a specific date type
-    isActive: bool = True
+    isActive: bool = False
     isCancelled: bool = False
 
 class MatchRequestWithLinks(MatchRequest):
@@ -36,3 +36,11 @@ class MatchRequestWithLinks(MatchRequest):
 class MatchRequestResponse(BaseModel):
     matchRequests: List[MatchRequestWithLinks]
     links: PaginationLinks
+
+class MatchRequestInitiate(BaseModel):
+    MatchRequestId: str
+
+class MatchmakingStatus(BaseModel):
+    matchRequestId: str
+    status: str  # Possible values: "matching", "matched", "not_found", "error"
+    partnerRequestId: Optional[str]

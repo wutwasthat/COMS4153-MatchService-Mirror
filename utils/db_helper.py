@@ -55,3 +55,16 @@ class MySQLDataService:
                 connection.commit()
                 return cursor.rowcount > 0  # Returns True if the insertion was successful
 
+    def update_data_object(self, database_name, collection_name, key_field, key_value, updated_data):
+        """Update an existing record in a specified table based on a unique key field."""
+        set_clause = ', '.join([f"{key} = %s" for key in updated_data.keys()])
+        sql_statement = f"UPDATE {database_name}.{collection_name} SET {set_clause} WHERE {key_field} = %s"
+        
+        # Prepare the parameters for the query
+        params = tuple(updated_data.values()) + (key_value,)
+        
+        with self._get_connection() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(sql_statement, params)
+                connection.commit()
+                return cursor.rowcount > 0  # Returns True if the update was successful
