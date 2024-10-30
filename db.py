@@ -111,13 +111,13 @@ def build_and_execute_match_request_query(db, userId: Optional[str], gameId: Opt
 
     if userId:
         base_query += " AND userId = %s"
-        params.append(f"%{userId}%")
+        params.append(f"{userId}")
     
     if gameId:
         base_query += " AND gameId = %s"
-        params.append(f"%{gameId}%")
+        params.append(f"{gameId}")
     
-    
+
     base_query += " LIMIT %s OFFSET %s"
     params.extend([page_size, offset])
     # Execute the query and return the results
