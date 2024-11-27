@@ -8,7 +8,7 @@
 # }
 import requests
 from fastapi import FastAPI, HTTPException, Query, BackgroundTasks
-from db import Database, build_and_execute_query, build_and_execute_match_request_query
+from db import CloudDatabase
 from utils.igdb_helper import fetch_games_data
 import os
 from dotenv import load_dotenv
@@ -19,9 +19,18 @@ from fastapi.responses import JSONResponse
 import uuid
 from datetime import datetime
 import asyncio
-
+from contextlib import asynccontextmanager
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 load_dotenv() # it loads from the .env file
 
@@ -34,32 +43,31 @@ context = {
 }
 
 # Initialize the Database instance
-db = Database(context)
+db = CloudDatabase(context)
 
 # TODO: Check if game exists, then update the game instead of creating new entry
-@app.on_event("startup")
-async def startup():
-    # Initialize the 'Games' database schema
-    print('Initialize the database...')
-    db.initialize('Games')  # Ensure the database and tables are created
-    print('Initialized all the tables in the database')
-    print("Fetching game data from IGDB and populating the database...")
-    games_info = fetch_games_data()
-    for game in games_info:
-        # Prepare the data object for insertion
-        data_object = {
-            "gameId": game["id"],
-            "title": game["name"],
-            "description": game["description"],
-            "image": game["image_url"]
-        }
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # # Startup logic
+    # print('Initialize the database...')
+    # print('Initialized all the tables in the database')
+    # print("Fetching game data from IGDB and populating the database...")
+    # games_info = fetch_games_data()
+    # for game in games_info:
+    #     data_object = {
+    #         "gameId": str(game["id"]),
+    #         "title": game["name"],
+    #         "description": game["description"],
+    #         "image": game["image_url"],
+    #         "genre": ",".join(game["genres"])
+    #     }
+    #     if not db.insert_data("Game", "game_info", data_object):
+    #         print(f"Failed to insert game: {game['name']}")
+    # print("Database population complete for table: games_info!")
 
-        # Insert the data object into the database
-        if db.data_service.insert_data_object("Games", "game_info", data_object):
-           pass
-        else:
-            print(f"Failed to insert game: {game['name']}")
-    print("Database population complete for table: games_info!")
+    yield
+
+app.router.lifespan_context = lifespan
 
 @app.get("/health")
 async def health():
@@ -72,7 +80,8 @@ async def get_games(
     page: int = Query(1, ge=1), 
     page_size: int = Query(10, ge=1),
     title: Optional[str] = None,
-    gameId: Optional[str] = None):
+    gameId: Optional[str] = None,
+    genre: Optional[str] = None):
     """
     Retrieve all games from the database.
     1) HATEOAS is implemented
@@ -84,25 +93,27 @@ async def get_games(
     """
     try:
         # Use the helper function to fetch filtered records
-        records = build_and_execute_query(db, title, gameId, page, page_size)
+        records, has_next_page = db.build_and_execute_query(title, gameId, page, page_size, genre)
     except Exception as e:
+        print(f"Error fetching records: {str(e)}")
         raise HTTPException(status_code=500, detail="An error occurred while fetching games from DB.")
     print("Fetched records from DB")
-    try:        
+    try:       
         games_with_links = []
         # Convert the records to Game objects
         for row in records:
             game_with_links = GameWithLinks(
-                gameId=row['gameId'],
-                title=row['title'],
-                description=row['description'],
-                image=row['image'],
+                gameId=row.gameId,
+                title=row.title,
+                description=row.description,
+                image=row.image if row.image else "No image available",
+                genre=row.genre,
                 links={
-                    "self": {"href": f"/games/{row['gameId']}"},
-                    "image": {"href": row['image'] or "No image available"}
+                    "self": {"href": f"/games/{row.gameId}"},
+                    "image": {"href": row.image or "No image available"}
                 }
             )
-            print(game_with_links)
+            # print(game_with_links)
             games_with_links.append(game_with_links)
         
         # Create response including pagination links
@@ -110,13 +121,14 @@ async def get_games(
             games=games_with_links,
             links={
                 "self": {"href": f"/games?page={page}&page_size={page_size}"},
-                "next": {"href": f"/games?page={page + 1}&page_size={page_size}"},
+                "next": {"href": f"/games?page={page + 1}&page_size={page_size}"} if has_next_page else None,
                 "prev": {"href": f"/games?page={page - 1}&page_size={page_size}"} if page > 1 else None
             }
         )
         
         return response
     except Exception as e:
+        print(f"Error processing records: {str(e)}")
         raise HTTPException(status_code=500, detail="An error occurred while processing games.")
 
     

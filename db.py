@@ -1,128 +1,78 @@
-import os
-import pymysql
-from utils.db_helper import MySQLDataService
+from sqlalchemy import Column, String, Text, create_engine, text, Table, MetaData, or_
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
+import traceback
 from typing import Optional
 
-class Database:
+
+Base = declarative_base()
+class GameInfo(Base):
+    __tablename__ = 'game_info'
+    __table_args__ = {'schema': 'Game'}  
+    
+    gameId = Column(String(36), primary_key=True)
+    image = Column(String(255)) 
+    title = Column(String(255))  
+    description = Column(Text)  
+    genre = Column(Text)       
+
+
+class CloudDatabase:
     def __init__(self, context):
-        """
-        Initialize the database connection using the provided context.
-        """
-        self.context = context
-        self.data_service = MySQLDataService(self.context)
+        self.engine = create_engine(
+            f"mysql+pymysql://{context['user']}:{context['password']}@"
+            f"{context['host']}:{context['port']}/{"Game"}",
+            echo=True  #
+        )
+        self.Session = sessionmaker(bind=self.engine)
 
-    def initialize(self, database_name):
-        """
-        Creates the database and tables if they do not exist.
-        """
-        # Connect to MySQL server (without specifying a database)
-        with self.data_service._get_connection() as connection:
-            with connection.cursor() as cursor:
-                # Create the database if it doesn't exist
-                cursor.execute(f"CREATE DATABASE IF NOT EXISTS {database_name}")
+    def get_session(self):
+        return self.Session()
 
-        # Ensure connection to the specific database for table creation
-        self.context["database"] = database_name  # Update context with database name
-        
-        # Create tables in the specified database
-        with self.data_service._get_connection() as connection:
-            with connection.cursor() as cursor:
-                cursor.execute(f"USE {database_name}")
+    def execute_raw_query(self, query, params=None):
+        with self.engine.connect() as connection:
+            result = connection.execute(text(query), params or {})
+            return result.fetchall()
 
-                # Create the `game_info` table if it doesn't exist
-                cursor.execute("""
-                    CREATE TABLE IF NOT EXISTS game_info (
-                        gameId CHAR(36) PRIMARY KEY,  -- Remove default UUID generation here
-                        image VARCHAR(255),
-                        title VARCHAR(255),
-                        description TEXT,
-                        genre TEXT
-                    )
-                """)
-
-                # Create the 'match_request' table if it doesn't exist
-                cursor.execute("""
-                    CREATE TABLE IF NOT EXISTS match_request (
-                        userId CHAR(36),
-                        gameId CHAR(36),
-                        matchRequestId CHAR(36) PRIMARY KEY,  -- Remove default UUID generation here
-                        expireDate DATE,
-                        isActive BOOL,
-                        isCancelled BOOL
-                    )
-                """)
-
-                # Create the `matched_requests` table if it doesn't exist
-                cursor.execute("""
-                    CREATE TABLE IF NOT EXISTS matched_requests (
-                        id INT AUTO_INCREMENT PRIMARY KEY,
-                        matchRequestId1 CHAR(36) NOT NULL,
-                        matchRequestId2 CHAR(36) NOT NULL,
-                        gameId CHAR(36) NOT NULL,
-                        status ENUM('matched', 'completed', 'cancelled') NOT NULL DEFAULT 'matched',
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                        FOREIGN KEY (matchRequestId1) REFERENCES match_request(matchRequestId) ON DELETE CASCADE,
-                        FOREIGN KEY (matchRequestId2) REFERENCES match_request(matchRequestId) ON DELETE CASCADE
-                    )
-                """)
+    def insert_data(self, schema_name, table_name, data_object):
+        metadata = MetaData(schema=schema_name)
+        table = Table(
+            table_name,
+            metadata,
+            autoload_with=self.engine 
+        )
+        try:
+            with self.engine.connect() as connection:
+                insert_stmt = table.insert().values(**data_object) 
+                connection.execute(insert_stmt)
                 connection.commit()
+            return True
+        except Exception as e:
+            print(f"Failed to insert data: {e}")
+            traceback.print_exc() 
+            return False
     
-# Helper functions for using query params
-def build_and_execute_query(db, title: Optional[str], gameId: Optional[str], page: int, page_size: int):
-    """Builds the SQL query based on filters and executes it, returning the results."""
-    # Calculate offset for pagination
-    offset = (page - 1) * page_size
-    
-    # Build the SQL query with optional filters
-    base_query = "SELECT * FROM Games.game_info WHERE 1=1"
-    params = []
-    
-    if title:
-        base_query += " AND title LIKE %s"
-        params.append(f"%{title}%")
-    
-    if gameId:
-        base_query += " AND gameId = %s"
-        params.append(f"%{gameId}%")
-    
-    base_query += " LIMIT %s OFFSET %s"
-    params.extend([page_size, offset])
-    # Execute the query and return the results
-    return db.data_service.execute_query(base_query, params)
+    def build_and_execute_query(self, title: Optional[str], gameId: Optional[str], page: int, page_size: int, genre: Optional[str]):
+        offset = (page - 1) * page_size
+        session = self.get_session()
+        query = session.query(GameInfo)
 
-def build_and_execute_match_request_query(db, userId: Optional[str], gameId: Optional[str], page: int, page_size: int):
-    """
-    Build and execute a SQL query to fetch match requests with optional filtering and pagination.
-    
-    :param db: The database instance.
-    :param userId: Optional user ID to filter match requests.
-    :param gameId: Optional game ID to filter match requests.
-    :param page: The page number for pagination.
-    :param page_size: The number of records per page.
-    :return: A list of match requests.
-    """
-    offset = (page - 1) * page_size  # Calculate the offset for pagination
+        if title:
+            query = query.filter(GameInfo.title.like(f"%{title}%"))
 
-    # Build the SQL query with optional filters
-    base_query = "SELECT * FROM Games.match_request WHERE 1=1"
+        if gameId:
+            query = query.filter(GameInfo.gameId == gameId)
 
-    params = []
+        genres_list = ["arcade", "shooter", "platform", "adventure", "fighting", "puzzle"]
+        if genre and genre.lower() != "other":
+            query = query.filter(GameInfo.genre.ilike(f"%{genre}%"))
+        elif genre and genre.lower() == "other":
+            exclude_conditions = [GameInfo.genre.ilike(f"%{g}%") for g in genres_list]
+            query = query.filter(~or_(*exclude_conditions))
 
-    if userId:
-        base_query += " AND userId = %s"
-        params.append(f"%{userId}%")
-    
-    if gameId:
-        base_query += " AND gameId = %s"
-        params.append(f"%{gameId}%")
-    
-    
-    base_query += " LIMIT %s OFFSET %s"
-    params.extend([page_size, offset])
-    # Execute the query and return the results
-    return db.data_service.execute_query(base_query, params)
-
-    
-  
-        
+        results = query.limit(page_size + 1).offset(offset).all()
+        has_next_page = len(results) > page_size
+        results = results[:page_size]
+        print("========================================================")
+        print(has_next_page)
+        return results, has_next_page

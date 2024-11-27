@@ -24,11 +24,10 @@ def fetch_games_data(limit=500, genre=None):
     """
     # Base query with required fields
     query = f"""
-    fields id, name, summary, genres.name, cover.image_id;
+    fields id, name, summary, genres.name, cover.image_id, multiplayer_modes.*; 
+    where multiplayer_modes.onlinemax = 2 | multiplayer_modes.offlinemax = 2; 
     limit {limit};
     """
-
-    # Add genre condition if provided
     if genre:
         query += f'where genres.name = "{genre}";'
 
@@ -39,7 +38,6 @@ def fetch_games_data(limit=500, genre=None):
     if response.status_code == 200:
         game_data = response.json()
         games_info = []
-
         for game in game_data:
             # Extract game details
             game_id = game['id']
