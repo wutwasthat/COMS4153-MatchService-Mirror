@@ -44,3 +44,15 @@ class MatchmakingStatus(BaseModel):
     matchRequestId: str
     status: str  # Possible values: "matching", "matched", "not_found", "error"
     partnerRequestId: Optional[str]
+
+class FavGameRequest(BaseModel):
+    user_id: str
+    game_id: str
+    match_request_id: str = None
+
+    def to_db(self):
+        return {
+            "userId": self.user_id, 
+            "gameId": self.game_id,
+            "matchRequestId": self.match_request_id
+        }

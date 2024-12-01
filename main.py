@@ -14,7 +14,7 @@ import os
 from dotenv import load_dotenv
 from typing import List, Optional
 from uuid import UUID
-from model import GameWithLinks, GamesResponse, MatchRequest, MatchRequestResponse, MatchRequestWithLinks, MatchRequestInitiate, MatchmakingStatus
+from model import GameWithLinks, GamesResponse, MatchRequest, MatchRequestResponse, MatchRequestWithLinks, MatchRequestInitiate, MatchmakingStatus, FavGameRequest
 from fastapi.responses import JSONResponse
 import uuid
 from datetime import datetime
@@ -131,6 +131,20 @@ async def get_games(
         print(f"Error processing records: {str(e)}")
         raise HTTPException(status_code=500, detail="An error occurred while processing games.")
 
+
+@app.get("/games/{game_name}", response_model=GamesResponse)
+async def get_games_by_name(game_name: str):
+    return get_games(title=game_name)
+
+@app.put("/games/{user_id}/{game_id}")
+async def update_fav_game(user_id: str, game_id: str):
+    data_object = FavGameRequest(user_id=user_id, game_id=game_id).to_db()
+    try:
+        if not db.insert_data("UserProfile", "user_favored_games", data_object):
+            raise HTTPException(status_code=500, detail="Failed to update game in the database.")
+        return {"message": "Game updated successfully."}
+    except Exception as e:
+        print(f"Error updating fav game: {str(e)}")
     
 @app.get("/games/{game_id}", response_model=GameWithLinks)
 async def get_game(game_id: str):

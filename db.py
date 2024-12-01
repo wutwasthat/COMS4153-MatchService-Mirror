@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Text, create_engine, text, Table, MetaData, or_
+from sqlalchemy import Column, String, Text, create_engine, text, Table, MetaData, or_, update
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import traceback
@@ -73,6 +73,4 @@ class CloudDatabase:
         results = query.limit(page_size + 1).offset(offset).all()
         has_next_page = len(results) > page_size
         results = results[:page_size]
-        print("========================================================")
-        print(has_next_page)
         return results, has_next_page
