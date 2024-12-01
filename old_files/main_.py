@@ -8,13 +8,13 @@
 # }
 import requests
 from fastapi import FastAPI, HTTPException, Query, BackgroundTasks
-from db import CloudDatabase
+from db_ import CloudDatabase
 from utils.igdb_helper import fetch_games_data
 import os
 from dotenv import load_dotenv
 from typing import List, Optional
 from uuid import UUID
-from model import GameWithLinks, GamesResponse, MatchRequest, MatchRequestResponse, MatchRequestWithLinks, MatchRequestInitiate, MatchmakingStatus, FavGameRequest
+from model_ import GameWithLinks, GamesResponse, MatchRequest, MatchRequestResponse, MatchRequestWithLinks, MatchRequestInitiate, MatchmakingStatus, FavGameRequest
 from fastapi.responses import JSONResponse
 import uuid
 from datetime import datetime
