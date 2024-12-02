@@ -1,0 +1,15 @@
+name: Test Workflow
+
+on:
+  push:
+    branches:
+      - cloud_db
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Print Hello World
+        run: echo "Hello, GitHub Actions!"
