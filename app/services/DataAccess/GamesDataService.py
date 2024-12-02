@@ -17,7 +17,7 @@ class GamesDataService(MySQLDataService):
         """
         self.engine = create_engine(
             f"mysql+pymysql://{self.context['user']}:{self.context['password']}@"
-            f"{self.context['host']}:{self.context['port']}/{"Game"}",
+            f"{self.context['host']}:{self.context['port']}/{'Game'}",
             echo=True  #
         )
         self.Session = sessionmaker(bind=self.engine)
