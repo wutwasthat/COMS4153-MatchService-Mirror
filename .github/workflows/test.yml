@@ -1,0 +1,7 @@
+name: Test Run
+
+on:
+  push:
+    branches:
+      - cloub_db   
+  workflow_dispatch:
