@@ -1,16 +1,31 @@
-name: Test Run
+name: Sync to Mirror Repo
 
 on:
   push:
     branches:
-      - cloub_db   
-  workflow_dispatch:
+      - main   
+      - cloud_db  
 
+    paths-ignore:
+      - '.github/workflows/**'
+  workflow_dispatch:  
 
 jobs:
-  deploy:
+  sync:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Check Out Code
+      - name: Checkout Original Repo
         uses: actions/checkout@v3
+
+      - name: Add SSH Key for Authentication
+        run: |
+          mkdir -p ~/.ssh
+          echo "PRIVATE_DEPLOY_KEY_CONTENTS" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          echo -e "Host github.com\n\tStrictHostKeyChecking no\n" >> ~/.ssh/config
+
+      - name: Push to Mirror Repo
+        run: |
+          git remote add mirror git@github.com:wutwasthat/COMS4153-MatchService-Mirror.git
+          git push --mirror mirror
