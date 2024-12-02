@@ -5,3 +5,8 @@ on:
     branches:
       - cloub_db   
   workflow_dispatch:
+
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
