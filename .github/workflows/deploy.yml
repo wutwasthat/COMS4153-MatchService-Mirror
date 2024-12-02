@@ -1,0 +1,41 @@
+name: Deploy to EC2
+ 
+on:
+  push:
+    branches:
+      - cloub_db    # Trigger deployment on push to the main branch
+  workflow_dispatch:  # Allow manual trigger of the deployment
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check Out Code
+        uses: actions/checkout@v3
+
+      - name: Log In to Docker Hub
+        run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}"
+
+      - name: Build and Push Docker Image
+        run: |
+          docker build -t matchservice .
+          docker tag matchservice ${{ secrets.DOCKER_USERNAME }}/matchservice:latest
+          docker push ${{ secrets.DOCKER_USERNAME }}/matchservice:latest
+
+      - name: Set Up SSH for EC2
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H 98.81.246.63 >> ~/.ssh/known_hosts
+
+      - name: Deploy on EC2
+        run: |
+          ssh -i ~/.ssh/id_rsa ec2-user@98.81.246.63 << EOF
+          docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
+          docker pull ${{ secrets.DOCKER_USERNAME }}/matchservice:latest
+          docker stop matchservice || true
+          docker rm matchservice || true
+          docker run -d -p 8080:8000 --name matchservice ${{ secrets.DOCKER_USERNAME }}/matchservice:latest
+          EOF
