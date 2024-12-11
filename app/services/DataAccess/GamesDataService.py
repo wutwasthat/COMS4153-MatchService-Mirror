@@ -11,13 +11,13 @@ class GamesDataService(MySQLDataService):
     def __init__(self, context):
         super().__init__(context)
 
-    def initialize(self):
+    def initialize(self, database_name):
         """
         Creates the database and tables if they do not exist.
         """
         self.engine = create_engine(
             f"mysql+pymysql://{self.context['user']}:{self.context['password']}@"
-            f"{self.context['host']}:{self.context['port']}/{'Game'}",
+            f"{self.context['host']}:{self.context['port']}/{database_name}",
             echo=True  #
         )
         self.Session = sessionmaker(bind=self.engine)

@@ -4,17 +4,18 @@ from app.models.pagination_links import PaginationLinks
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, String, Text
 
-
 Base = declarative_base()
+
+
 class GameInfo(Base):
     __tablename__ = 'game_info'
-    __table_args__ = {'schema': 'Game'}  
-    
+    __table_args__ = {'schema': 'Game'}
+
     gameId = Column(String(36), primary_key=True)
-    image = Column(String(255)) 
-    title = Column(String(255))  
-    description = Column(Text)  
-    genre = Column(Text)       
+    image = Column(String(255))
+    title = Column(String(255))
+    description = Column(Text)
+    genre = Column(Text)
 
 class Game(BaseModel):
     gameId: str
@@ -27,15 +28,3 @@ class Game(BaseModel):
 class Games(BaseModel):
     games: List[Game]
     links: PaginationLinks
-
-class FavGameRequest(BaseModel):
-    user_id: str
-    game_id: str
-    match_request_id: str = None
-
-    def to_db(self):
-        return {
-            "userId": self.user_id, 
-            "gameId": self.game_id,
-            "matchRequestId": self.match_request_id
-        }

@@ -12,7 +12,12 @@ class GamesResource(BaseResource):
         # TODO -- Replace with dependency injection.
         #
         self.data_service = ServiceFactory.get_service("GamesResourceDataService")
-        self.data_service.initialize()
+
+        self.database = "Game"
+        self.collection = "game_info"
+        self.key_field = "gameId"
+
+        self.data_service.initialize(self.database)
 
 
     def get_item(self, key: str) -> Game:
@@ -37,13 +42,13 @@ class GamesResource(BaseResource):
     @staticmethod
     def populate_game_model(record):
         return Game(
-                    gameId=record.gameId,
-                    title=record.title,
-                    description=record.description,
-                    image=record.image if record.image else "No image available",
+                    gameId=record['gameId'],
+                    title=record['title'],
+                    description=record['description'],
+                    image=record['image'] if record['image'] else "No image available",
                     links={
-                        "self": {"href": f"/games/{record.gameId}"},
-                        "image": {"href": record.image or "No image available"}
+                        "self": {"href": f"/games/{record['gameId']}"},
+                        "image": {"href": record['image'] or "No image available"}
                     }
         )
 

@@ -6,13 +6,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.resources.games_resource import GamesResource
 
 
-from app.routers import games, match_requests
+from app.routers import games, match_requests, favourites
 
 app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -23,6 +23,7 @@ load_dotenv()
 
 app.include_router(games.router)
 app.include_router(match_requests.router)
+app.include_router(favourites.router)
 
 @app.get("/health")
 async def health():

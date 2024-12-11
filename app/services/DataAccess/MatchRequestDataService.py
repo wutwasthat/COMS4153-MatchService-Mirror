@@ -71,7 +71,7 @@ class MatchRequestDataService(MySQLDataService):
         database = self.context["database"]
 
         # Build the SQL query with optional filters
-        base_query = "SELECT * FROM Games.match_request WHERE 1=1"
+        base_query = f"SELECT * FROM {database}.match_request WHERE 1=1"
 
         params = []
 

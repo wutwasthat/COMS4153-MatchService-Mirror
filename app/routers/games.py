@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Query, HTTPException
 from typing import Optional
-from app.models.game import Game, Games, FavGameRequest
+from app.models.game import Game, Games
 from app.services.service_factory import ServiceFactory
 
 router = APIRouter()
@@ -18,6 +18,7 @@ async def get_game(game_id: str):
         return record
 
     except Exception as e:
+        print(e)
         raise HTTPException(status_code=500, detail="An error occurred while fetching the game.")
 
 # TODO: Fix genre population logic
@@ -48,21 +49,4 @@ async def get_games(
     except Exception as e:
         print(e)
         raise HTTPException(status_code=500, detail="An error occurred while fetching games from DB.")
-
-@router.get("/games/{game_name}", response_model=Games)
-async def get_games_by_name(game_name: str):
-    return get_games(title=game_name)
-
-#TODO: This belongs to user profile service need to move it later to users service repo
-@router.put("/games/{user_id}/{game_id}")
-async def update_fav_game(user_id: str, game_id: str):
-    data_object = FavGameRequest(user_id=user_id, game_id=game_id).to_db()
-    res = ServiceFactory.get_service("GamesResource")
-    try:
-        if not res.data_service.insert_data_object("UserProfile", "user_favored_games", data_object):
-            raise HTTPException(status_code=500, detail="Failed to update game in the database.")
-        return {"message": "Game updated successfully."}
-    except Exception as e:
-        print(f"Error updating fav game: {str(e)}")
-
 
