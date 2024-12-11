@@ -10,7 +10,3 @@ class BaseResource(ABC):
     @abstractmethod
     def get_item(self, key: str) -> Any:
         raise NotImplementedError()
-
-    @abstractmethod
-    def get_list(self, key1: str, key2: str, page:int, page_size:int) -> Any:
-        raise NotImplementedError()

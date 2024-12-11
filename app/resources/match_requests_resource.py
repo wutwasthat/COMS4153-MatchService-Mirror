@@ -5,6 +5,8 @@ from app.models.match_making_status import MatchMakingStatus
 from app.models.match_request_initiate import MatchRequestInitiate
 from app.models.match_request import MatchRequest, MatchRequests, MatchRequestWithLinks
 
+from app.resources.favourites_resource import FavouritesResource
+
 from framework.exceptions.match_exceptions import MatchNotFoundException,MatchNotValidException
 from app.services.service_factory import ServiceFactory
 
@@ -18,7 +20,7 @@ class MatchRequestsResource(BaseResource):
         #
         self.data_service = ServiceFactory.get_service("MatchResourceDataService")
 
-        self.database = "Games"
+        self.database = "Game"
         self.match_request_table = "match_request"
         self.matched_request_table = "matched_requests"
         self.key_field = "matchRequestId"
