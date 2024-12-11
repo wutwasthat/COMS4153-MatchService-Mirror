@@ -19,7 +19,7 @@ jobs:
         
       - name: Build and Push Docker Image
         run: |
-          docker build -t matchservice .
+          docker build --platform linux/amd64 -t matchservice .
           docker tag matchservice ${{ secrets.DOCKER_USERNAME }}/matchservice:latest
           docker push ${{ secrets.DOCKER_USERNAME }}/matchservice:latest
 
