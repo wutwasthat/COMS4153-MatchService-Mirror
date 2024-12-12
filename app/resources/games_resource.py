@@ -1,6 +1,5 @@
 from framework.resources.base_resource import BaseResource
 from app.models.game import Game, Games
-from app.resources.match_requests_resource import MatchRequestsResource
 from app.services.service_factory import ServiceFactory
 
 

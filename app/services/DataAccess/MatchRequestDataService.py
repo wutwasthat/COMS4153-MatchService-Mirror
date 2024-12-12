@@ -26,33 +26,33 @@ class MatchRequestDataService(MySQLDataService):
             with connection.cursor() as cursor:
                 cursor.execute(f"USE {database_name}")
 
-                # Create the 'match_request' table if it doesn't exist
-                cursor.execute("""
-                    CREATE TABLE IF NOT EXISTS match_request (
-                        userId CHAR(36),
-                        gameId CHAR(36),
-                        matchRequestId CHAR(36) PRIMARY KEY,  -- Remove default UUID generation here
-                        expireDate DATE,
-                        isActive BOOL,
-                        isCancelled BOOL
-                    )
-                """)
+                # # Create the 'match_request' table if it doesn't exist
+                # cursor.execute("""
+                #     CREATE TABLE IF NOT EXISTS match_request (
+                #         userId CHAR(36),
+                #         gameId CHAR(36),
+                #         matchRequestId CHAR(36) PRIMARY KEY,  -- Remove default UUID generation here
+                #         expireDate DATE,
+                #         isActive BOOL,
+                #         isCancelled BOOL
+                #     )
+                # """)
 
-                # Create the `matched_requests` table if it doesn't exist
-                cursor.execute("""
-                    CREATE TABLE IF NOT EXISTS matched_requests (
-                        id INT AUTO_INCREMENT PRIMARY KEY,
-                        matchRequestId1 CHAR(36) NOT NULL,
-                        matchRequestId2 CHAR(36) NOT NULL,
-                        gameId CHAR(36) NOT NULL,
-                        status ENUM('matched', 'completed', 'cancelled') NOT NULL DEFAULT 'matched',
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                        FOREIGN KEY (matchRequestId1) REFERENCES match_request(matchRequestId) ON DELETE CASCADE,
-                        FOREIGN KEY (matchRequestId2) REFERENCES match_request(matchRequestId) ON DELETE CASCADE
-                    )
-                """)
-                connection.commit()
+                # # Create the `matched_requests` table if it doesn't exist
+                # cursor.execute("""
+                #     CREATE TABLE IF NOT EXISTS matched_requests (
+                #         id INT AUTO_INCREMENT PRIMARY KEY,
+                #         matchRequestId1 CHAR(36) NOT NULL,
+                #         matchRequestId2 CHAR(36) NOT NULL,
+                #         gameId CHAR(36) NOT NULL,
+                #         status ENUM('matched', 'completed', 'cancelled') NOT NULL DEFAULT 'matched',
+                #         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                #         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                #         FOREIGN KEY (matchRequestId1) REFERENCES match_request(matchRequestId) ON DELETE CASCADE,
+                #         FOREIGN KEY (matchRequestId2) REFERENCES match_request(matchRequestId) ON DELETE CASCADE
+                #     )
+                # """)
+                # connection.commit()
 
 
     def get_match_requests_records(self, user_id: Optional[str], game_id: Optional[str], page: int, page_size: int):

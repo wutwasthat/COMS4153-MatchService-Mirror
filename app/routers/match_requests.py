@@ -9,21 +9,22 @@ from app.services.service_factory import ServiceFactory
 from framework.exceptions.match_exceptions import MatchNotValidException, MatchNotFoundException
 
 router = APIRouter()
+res = ServiceFactory.get_service("MatchRequestsResource")
 
 @router.get("/match-requests/{match_request_id}", response_model=MatchRequestWithLinks)
 async def get_match_request(match_request_id: str):
     try:
-        res = ServiceFactory.get_service("MatchRequestsResource")
+        print(f"Fetching Match Request with match_request_id {match_request_id}")
         record = res.get_item(match_request_id)
 
         if not record:
             raise HTTPException(status_code=404, detail="match_request_id not found")
 
         print(f"Fetched Match Request with match_request_id {match_request_id}: {record}")
-
         return record
 
     except Exception as e:
+        print(e)
         raise HTTPException(status_code=500, detail="An error occurred while fetching the game.")
 
 
@@ -45,8 +46,6 @@ async def get_match_requests(
     4) Added filtering logic using query params for userId and gameId
     """
     try:
-
-        res = ServiceFactory.get_service("MatchRequestsResource")
         records = res.get_list(user_id, game_id, page, page_size)
 
         return records
@@ -61,8 +60,6 @@ async def get_match_requests(
 @router.post("/match-requests", response_model=MatchRequest, status_code=201)
 async def create_match_request(match_request: MatchRequest):
     try:
-
-        res = ServiceFactory.get_service("MatchRequestsResource")
         record = res.create_match_request(match_request)
 
         if not record:
@@ -78,6 +75,7 @@ async def create_match_request(match_request: MatchRequest):
             status_code=201
         )
         print(response.headers)
+        print(record.matchRequestId)
         return response
 
     except Exception as e:
@@ -90,7 +88,6 @@ async def initiate_match(
     background_tasks: BackgroundTasks ):
     try:
 
-        res = ServiceFactory.get_service("MatchRequestsResource")
         match_request_id = res.initiate_match_process(match_request_initiate)
 
         background_tasks.add_task(res.process_matchmaking, match_request_id)
@@ -117,7 +114,6 @@ async def initiate_match(
 async def get_matchmaking_status(match_request_id: str):
     try:
         # Fetch the match request from the database to check its status
-        res = ServiceFactory.get_service("MatchRequestsResource")
         response = res.get_match_status(match_request_id)
 
         return response

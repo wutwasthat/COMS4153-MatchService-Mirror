@@ -5,10 +5,11 @@ from app.services.service_factory import ServiceFactory
 
 router = APIRouter()
 
+res = ServiceFactory.get_service("GamesResource")
+
 @router.get("/games/{game_id}", response_model=Game)
 async def get_game(game_id: str):
     try:
-        res = ServiceFactory.get_service("GamesResource")
         record = res.get_item(game_id)
 
         if not record:
@@ -41,8 +42,6 @@ async def get_games(
     4) Added filtering logic using query param for title
     """
     try:
-
-        res = ServiceFactory.get_service("GamesResource")
         records = res.get_list(title, game_id, page, page_size, genre)
         return records
 

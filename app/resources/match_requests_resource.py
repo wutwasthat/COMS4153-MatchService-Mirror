@@ -123,7 +123,7 @@ class MatchRequestsResource(BaseResource):
                 userId=record['userId'],
                 gameId=record['gameId'],
                 matchRequestId=record['matchRequestId'],
-                expireDate=record['expireDate'].strftime("%Y-%m-%d"),
+                expireDate=record['expireDate'] if type(record['expireDate']) == str else record['expireDate'].strftime("%Y-%m-%d"),
                 isActive=record['isActive'],
                 isCancelled=record['isCancelled'],
                 links={
@@ -136,11 +136,12 @@ class MatchRequestsResource(BaseResource):
         match_request_models = []
         # Convert the records to MatchRequest objects
         for row in records:
+            date = row['expireDate'] if type(row['expireDate']) == str else row['expireDate'].strftime("%Y-%m-%d")
             match_request_model = MatchRequestWithLinks(
                 userId=row['userId'],
                 gameId=row['gameId'],
                 matchRequestId=row['matchRequestId'],
-                expireDate=row['expireDate'].strftime("%Y-%m-%d"),
+                expireDate=date,
                 isActive=row['isActive'],
                 isCancelled=row['isCancelled'],
                 links={
