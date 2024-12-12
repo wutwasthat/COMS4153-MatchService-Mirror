@@ -27,26 +27,27 @@ class GamesDataService(MySQLDataService):
 
     def get_game_records(self, title: Optional[str], gameId: Optional[str], page: int, page_size: int, genre: Optional[str]):
         offset = (page - 1) * page_size
-        session = self.get_session()
-        query = session.query(GameInfo)
+        with self.get_session() as session:
+            session = self.get_session()
+            query = session.query(GameInfo)
 
-        if title:
-            query = query.filter(GameInfo.title.like(f"%{title}%"))
+            if title:
+                query = query.filter(GameInfo.title.like(f"%{title}%"))
 
-        if gameId:
-            query = query.filter(GameInfo.gameId == gameId)
+            if gameId:
+                query = query.filter(GameInfo.gameId == gameId)
 
-        genres_list = ["arcade", "shooter", "platform", "adventure", "fighting", "puzzle"]
-        if genre and genre.lower() != "other":
-            query = query.filter(GameInfo.genre.ilike(f"%{genre}%"))
-        elif genre and genre.lower() == "other":
-            exclude_conditions = [GameInfo.genre.ilike(f"%{g}%") for g in genres_list]
-            query = query.filter(~or_(*exclude_conditions))
+            genres_list = ["arcade", "shooter", "platform", "adventure", "fighting", "puzzle"]
+            if genre and genre.lower() != "other":
+                query = query.filter(GameInfo.genre.ilike(f"%{genre}%"))
+            elif genre and genre.lower() == "other":
+                exclude_conditions = [GameInfo.genre.ilike(f"%{g}%") for g in genres_list]
+                query = query.filter(~or_(*exclude_conditions))
 
-        results = query.limit(page_size + 1).offset(offset).all()
-        has_next_page = len(results) > page_size
-        results = results[:page_size]
-        return results, has_next_page
+            results = query.limit(page_size + 1).offset(offset).all()
+            has_next_page = len(results) > page_size
+            results = results[:page_size]
+            return results, has_next_page
     
     def insert_data_object(self, database_name, collection_name, data_object):
         metadata = MetaData(schema=database_name)
